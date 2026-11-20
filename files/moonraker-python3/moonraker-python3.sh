@@ -39,6 +39,28 @@ env_python_version() {
   "$1/bin/python" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo "?"
 }
 
+opkg_install_retry() {
+  # Install only the missing packages, retrying because downloads from
+  # bin.entware.net can time out.
+  local missing="" p i
+  for p in "$@"; do
+    "$OPKG" list-installed | grep -q "^$p " || missing="$missing $p"
+  done
+  if [ -z "$missing" ]; then
+    echo "  all installed: $*"
+    return 0
+  fi
+  info "Installing:$missing"
+  for i in 1 2 3 4 5 6 7 8; do
+    if "$OPKG" update && "$OPKG" install $missing; then
+      return 0
+    fi
+    echo "  attempt $i failed, retrying in 5 s..."
+    sleep 5
+  done
+  fail "Could not download Entware packages:$missing (bin.entware.net unreachable). Run build again later."
+}
+
 wait_for_port() {
   local port="$1" i=0
   while [ $i -lt 30 ]; do
@@ -110,12 +132,8 @@ cmd_build() {
 
   rm -rf "$BUILD_TMP"
   mkdir -p "$BUILD_TMP"
-  info "Installing Entware packages (python3, pip, pillow, libsodium, gcc)..."
-  "$OPKG" update
-  "$OPKG" install python3 python3-pip python3-pillow libsodium gcc
-  if "$OPKG" list | grep -q '^python3-dev '; then
-    "$OPKG" install python3-dev
-  fi
+  info "Checking Entware packages..."
+  opkg_install_retry python3 python3-pip python3-pillow python3-dev libsodium gcc
 
   local inc
   inc=$("$PY3" -c 'import sysconfig; print(sysconfig.get_paths()["include"])')
@@ -125,7 +143,11 @@ cmd_build() {
   if ! echo '#include <stdio.h>' | /opt/bin/gcc -E - > /dev/null 2>&1; then
     info "Installing C headers for Entware gcc..."
     mkdir -p "$BUILD_TMP" /opt/include
-    "$CURL" -L -o "$BUILD_TMP/include.tar.gz" http://bin.entware.net/mipselsf-k3.4/include/include.tar.gz
+    local n=0
+    until "$CURL" -L --connect-timeout 15 -o "$BUILD_TMP/include.tar.gz" http://bin.entware.net/mipselsf-k3.4/include/include.tar.gz; do
+      n=$((n + 1)); [ $n -lt 8 ] || fail "Could not download include.tar.gz. Run build again later."
+      echo "  attempt $n failed, retrying in 5 s..."; sleep 5
+    done
     tar -xzf "$BUILD_TMP/include.tar.gz" -C /opt/include
     echo '#include <stdio.h>' | /opt/bin/gcc -E - > /dev/null 2>&1 || fail "gcc still can't find C headers."
   fi
