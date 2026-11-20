@@ -27,6 +27,8 @@ function tools_menu_ui_k1() {
   hr
   menu_option '13' 'Reset' 'factory settings'
   hr
+  menu_option '14' 'Update' 'Moonraker (offline package)'
+  hr
   inner_line
   hr
   bottom_menu_option 'b' 'Back to [Main Menu]' "${yellow}"
@@ -103,6 +105,12 @@ function tools_menu_k1() {
         run "restore_previous_firmware" "tools_menu_ui_k1";;
       13)
         run "reset_factory_settings" "tools_menu_ui_k1";;
+      14)
+        if [ ! -d "$MOONRAKER_FOLDER" ]; then
+          error_msg "Moonraker is not installed!"
+        else
+          run "update_moonraker_offline" "tools_menu_ui_k1"
+        fi;;
       B|b)
         clear; main_menu; break;;
       Q|q)
