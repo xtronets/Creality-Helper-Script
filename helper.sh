@@ -24,7 +24,14 @@ function update_available() {
   local remote current
   cd "${HELPER_SCRIPT_FOLDER}"
   ! git branch -a | grep -q "\* main" && return
-  git fetch -q > /dev/null 2>&1
+  # Don't hang the menu when GitHub is unreachable: give up after 15 s
+  if timeout 1 true > /dev/null 2>&1; then
+    timeout 15 git fetch -q > /dev/null 2>&1 || return
+  elif timeout -t 1 true > /dev/null 2>&1; then
+    timeout -t 15 git fetch -q > /dev/null 2>&1 || return
+  else
+    git fetch -q > /dev/null 2>&1 || return
+  fi
   remote=$(git rev-parse --short=8 FETCH_HEAD)
   current=$(git rev-parse --short=8 HEAD)
   if [[ ${remote} != "${current}" ]]; then
