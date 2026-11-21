@@ -48,6 +48,7 @@ function install_moonraker_nginx(){
         cp "$MOONRAKER_URL3" "$PRINTER_DATA_FOLDER"/moonraker.asvc
         echo -e "Info: Pinning Moonraker version in moonraker.conf..."
         pin_moonraker_version
+        install_moonraker_ipv4_fix
         echo -e "Info: Installing Supervisor Lite..."
         chmod 755 "$SUPERVISOR_URL"
         ln -sf "$SUPERVISOR_URL" "$SUPERVISOR_FILE"
@@ -107,6 +108,14 @@ function remove_moonraker_nginx(){
 }
 
 MOONRAKER_PINNED_COMMIT="b559b9a81161f958a43c2f527b6ad96f73310d5d"
+
+function install_moonraker_ipv4_fix(){
+  # K1C kernel has no IPv6: make Moonraker resolve hostnames to IPv4 only
+  local sp
+  for sp in "$MOONRAKER_FOLDER"/moonraker-env/lib/python3*/site-packages; do
+    [ -d "$sp" ] && cp -f "$HELPER_SCRIPT_FOLDER"/files/moonraker/sitecustomize.py "$sp"/sitecustomize.py
+  done
+}
 
 function pin_moonraker_version(){
   # Moonraker >= v0.11 officially requires Python 3.10, the K1C has 3.8.
@@ -190,6 +199,7 @@ function update_moonraker_offline(){
         fi
         echo -e "Info: Pinning Moonraker version in moonraker.conf..."
         pin_moonraker_version
+        install_moonraker_ipv4_fix
         echo -e "Info: Starting Moonraker service..."
         start_moonraker
         echo -e "Info: Waiting for Moonraker to respond (up to 90 s)..."

@@ -172,6 +172,11 @@ cmd_build() {
     "$ENV_NEW/bin/python" -m pip install --no-cache-dir \
     --no-index --find-links "$WHEELS" -r "$REQS"
 
+  # K1C kernel has no IPv6, resolve hostnames to IPv4 only
+  local sp
+  sp=$("$ENV_NEW/bin/python" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')
+  cp -f "$HERE/../moonraker/sitecustomize.py" "$sp/sitecustomize.py"
+
   info "Checking imports..."
   "$ENV_NEW/bin/python" -c 'import tornado, streaming_form_data, PIL, libnacl.sign, zeroconf, dbus_fast, paho.mqtt, apprise, jinja2, serial; print("  all imports OK")'
 
